@@ -1,12 +1,11 @@
 import { WebSocketServer, WebSocket } from "ws";
-import type { Player, Game } from "./types.js";
 import {
+  handleAnswer,
   handleCreateGame,
   handleJoinGame,
   handleRegister,
   handleStartGame,
 } from "./commands.js";
-import { users, games } from "./state.js";
 const PORT = 8080;
 const wss = new WebSocketServer({ port: PORT });
 
@@ -29,6 +28,9 @@ wss.on("connection", (ws: WebSocket) => {
           break;
         case "start_game":
           handleStartGame(ws, data);
+          break;
+        case "answer":
+          handleAnswer(ws, data);
           break;
         default:
           console.log(`Unknown command: ${type}`);

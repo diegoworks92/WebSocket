@@ -22,4 +22,5 @@ export interface Game {
   players: Player[];
   currentQuestion: number;
   status: "waiting" | "in_progress" | "finished";
+  questionStartTime?: number;
 }

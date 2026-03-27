@@ -154,6 +154,7 @@ export function handleStartGame(ws: WebSocket, data: { gameId: string }) {
 
   game.status = "in_progress";
   game.currentQuestion = 0;
+  game.questionStartTime = Date.now();
 
   broadcastToGame(game, "question", {
     questionNumber: 1,
@@ -164,4 +165,33 @@ export function handleStartGame(ws: WebSocket, data: { gameId: string }) {
   });
 
   console.log(`Game ${game.code} started by host ${user.name}`);
+}
+
+export function handleAnswer(
+  ws: WebSocket,
+  data: { gameId: string; questionIndex: number; answerIndex: number },
+) {
+  const { gameId, questionIndex, answerIndex } = data;
+  const game = Array.from(games.values()).find((g) => g.id === gameId);
+  const user = Array.from(users.values()).find((u) => u.ws === ws);
+
+  if (!game || !user || game.status !== "in_progress") return;
+
+  const player = game.players.find((p) => p.index === user.index);
+  if (!player || game.currentQuestion !== questionIndex) return;
+
+  const question = game.questions[questionIndex];
+  if (!question || !game.questionStartTime) return;
+
+  const now = Date.now();
+  const timeElapsed = (now - game.questionStartTime) / 1000;
+  const timeLimit = question.timeLimitSec;
+
+  if (timeElapsed <= timeLimit && answerIndex === question.correctIndex) {
+    const timeRemaining = Math.max(0, timeLimit - timeElapsed);
+    const points = Math.round(1000 * (timeRemaining / timeLimit));
+    player.score += points;
+  }
+
+  sendResponse(ws, "answer_accepted", { questionIndex });
 }
