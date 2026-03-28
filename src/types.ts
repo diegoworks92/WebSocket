@@ -23,4 +23,5 @@ export interface Game {
   currentQuestion: number;
   status: "waiting" | "in_progress" | "finished";
   questionStartTime?: number;
+  answers: Map<string, { answerIndex: number; points: number }>;
 }

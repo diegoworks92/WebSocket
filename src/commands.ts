@@ -71,6 +71,7 @@ export function handleCreateGame(
     players: [],
     currentQuestion: -1,
     status: "waiting",
+    answers: new Map(),
   };
 
   games.set(roomCode, newGame);
@@ -156,15 +157,40 @@ export function handleStartGame(ws: WebSocket, data: { gameId: string }) {
   game.currentQuestion = 0;
   game.questionStartTime = Date.now();
 
-  broadcastToGame(game, "question", {
-    questionNumber: 1,
-    totalQuestions: game.questions.length,
-    text: firstQuestion.text,
-    options: firstQuestion.options,
-    timeLimitSec: firstQuestion.timeLimitSec,
+  setTimeout(() => {
+    finishQuestion(game, 0);
+  }, firstQuestion.timeLimitSec * 1000);
+
+  console.log(
+    `Game ${game.code} started. Timer set for ${firstQuestion.timeLimitSec}s`,
+  );
+}
+
+function finishQuestion(game: Game, qIndex: number) {
+  if (game.currentQuestion !== qIndex) return;
+
+  const question = game.questions[qIndex];
+
+  if (!question) return;
+
+  const playerResults = game.players.map((player) => {
+    const res = game.answers.get(player.index.toString());
+    return {
+      name: player.name,
+      answered: !!res,
+      correct: res ? res.answerIndex === question.correctIndex : false,
+      pointsEarned: res ? res.points : 0,
+      totalScore: player.score,
+    };
   });
 
-  console.log(`Game ${game.code} started by host ${user.name}`);
+  broadcastToGame(game, "question_result", {
+    questionIndex: qIndex,
+    correctIndex: question.correctIndex,
+    playerResults,
+  });
+
+  game.answers.clear();
 }
 
 export function handleAnswer(
@@ -172,13 +198,22 @@ export function handleAnswer(
   data: { gameId: string; questionIndex: number; answerIndex: number },
 ) {
   const { gameId, questionIndex, answerIndex } = data;
-  const game = Array.from(games.values()).find((g) => g.id === gameId);
+
+  const game = Array.from(games.values()).find(
+    (g) => g.id === gameId || g.code === gameId,
+  );
   const user = Array.from(users.values()).find((u) => u.ws === ws);
 
-  if (!game || !user || game.status !== "in_progress") return;
+  if (!game)
+    return console.error(`Answer Error: Game not found with ID ${gameId}`);
+  if (!user) return console.error("Answer Error: User not found");
+  if (game.status !== "in_progress")
+    return console.error("Answer Error: Game not in progress");
 
   const player = game.players.find((p) => p.index === user.index);
-  if (!player || game.currentQuestion !== questionIndex) return;
+  if (!player) return console.error("Answer Error: Player not in game");
+  if (game.currentQuestion !== questionIndex)
+    return console.error("Answer Error: Wrong question index");
 
   const question = game.questions[questionIndex];
   if (!question || !game.questionStartTime) return;
@@ -187,11 +222,18 @@ export function handleAnswer(
   const timeElapsed = (now - game.questionStartTime) / 1000;
   const timeLimit = question.timeLimitSec;
 
+  let pointsEarned = 0;
+
   if (timeElapsed <= timeLimit && answerIndex === question.correctIndex) {
     const timeRemaining = Math.max(0, timeLimit - timeElapsed);
-    const points = Math.round(1000 * (timeRemaining / timeLimit));
-    player.score += points;
+    pointsEarned = Math.round(1000 * (timeRemaining / timeLimit));
+    player.score += pointsEarned;
   }
+
+  game.answers.set(user.index.toString(), {
+    answerIndex,
+    points: pointsEarned,
+  });
 
   sendResponse(ws, "answer_accepted", { questionIndex });
 }
