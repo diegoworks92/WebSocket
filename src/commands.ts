@@ -1,6 +1,6 @@
 import { WebSocket } from "ws";
 import { games, users } from "./state.js";
-import type { Player, Game, Question } from "./types.js";
+import type { Game, Question } from "./types.js";
 import { generateRoomCode } from "./utils.js";
 
 export function sendResponse(ws: WebSocket, type: string, data: any) {
@@ -170,7 +170,6 @@ function finishQuestion(game: Game, qIndex: number) {
   if (game.currentQuestion !== qIndex) return;
 
   const question = game.questions[qIndex];
-
   if (!question) return;
 
   const playerResults = game.players.map((player) => {
@@ -191,6 +190,51 @@ function finishQuestion(game: Game, qIndex: number) {
   });
 
   game.answers.clear();
+
+  setTimeout(() => {
+    const nextIndex = qIndex + 1;
+    if (nextIndex < game.questions.length) {
+      sendNextQuestion(game, nextIndex);
+    } else {
+      sendFinalScoreboard(game);
+    }
+  }, 5000);
+}
+
+function sendNextQuestion(game: Game, nextIndex: number) {
+  const question = game.questions[nextIndex];
+
+  if (!question) return;
+
+  game.currentQuestion = nextIndex;
+  game.questionStartTime = Date.now();
+
+  broadcastToGame(game, "question", {
+    questionNumber: nextIndex + 1,
+    totalQuestions: game.questions.length,
+    text: question.text,
+    options: question.options,
+    timeLimitSec: question.timeLimitSec,
+  });
+
+  setTimeout(
+    () => finishQuestion(game, nextIndex),
+    question.timeLimitSec * 1000,
+  );
+}
+
+function sendFinalScoreboard(game: Game) {
+  game.status = "finished";
+
+  const sortedPlayers = [...game.players].sort((a, b) => b.score - a.score);
+
+  const scoreboard = sortedPlayers.map((p, i) => ({
+    name: p.name,
+    score: p.score,
+    rank: i + 1,
+  }));
+
+  broadcastToGame(game, "game_finished", { scoreboard });
 }
 
 export function handleAnswer(
@@ -236,4 +280,33 @@ export function handleAnswer(
   });
 
   sendResponse(ws, "answer_accepted", { questionIndex });
+}
+
+export function handleDisconnect(ws: WebSocket) {
+  const userEntry = Array.from(users.values()).find((u) => u.ws === ws);
+  if (!userEntry) return;
+
+  delete userEntry.ws;
+
+  games.forEach((game) => {
+    const initialLength = game.players.length;
+
+    game.players = game.players.filter((p) => p.ws !== ws);
+
+    if (game.players.length !== initialLength) {
+      console.log(
+        `Player ${userEntry.name} removed from game ${game.code} (Disconnect)`,
+      );
+
+      broadcastToGame(
+        game,
+        "update_players",
+        game.players.map((p) => ({
+          name: p.name,
+          index: p.index,
+          score: p.score,
+        })),
+      );
+    }
+  });
 }

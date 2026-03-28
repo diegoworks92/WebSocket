@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import {
   handleAnswer,
   handleCreateGame,
+  handleDisconnect,
   handleJoinGame,
   handleRegister,
   handleStartGame,
@@ -42,6 +43,7 @@ wss.on("connection", (ws: WebSocket) => {
 
   ws.on("close", () => {
     console.log("Client disconnected");
+    handleDisconnect(ws);
   });
 });
 
