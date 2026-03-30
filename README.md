@@ -1,80 +1,73 @@
-# WebSocket — Live Quiz Game Backend
+Assignment: WebSocket Live Quiz Game
+What to do
+Fork this repository
+Implement the WebSocket server in the server/ folder
+The client (React frontend) in client/ is already fully implemented and ready to use — do not modify it
+Project structure
+├── client/ # Frontend (React + Vite) — fully working, do not modify
+├── server/ # Backend (Node.js + ws) — YOUR implementation goes here
+│ ├── src/
+│ │ ├── index.ts # Server entry point (starter code provided)
+│ │ └── types.ts # TypeScript interfaces for all data structures
+│ ├── package.json
+│ └── tsconfig.json
+└── package.json # Root workspace config
+Getting started
 
-This is the server-side implementation for a real-time Live Quiz Game, similar to Kahoot. It allows a host to create a quiz, players to join via a room code, and everyone to participate in a synchronized, fast-paced trivia challenge.
+# Install all dependencies (server + client)
 
-## Features
+npm install
 
-- Real-time Communication: Built with the ws library for low-latency updates.
-- Dynamic Scoring: Points are calculated based on response speed using the formula:
-  Points = 1000 \* (TimeRemaining / TimeLimit)
-- Automated Game Flow: Server-side timers manage question transitions and result broadcasts.
-- Robust Player Management: Handles player registrations, room joins, and graceful disconnects with real-time leaderboard updates.
+# Run both server and client in dev mode
 
-## Technical Requirements
+npm run dev
 
-- Node.js: Version 24.x.x or higher.
-- Language: TypeScript.
-- Protocol: WebSocket (JSON-based communication).
+# Or run them separately:
 
-## Installation & Running
+npm run start:server # server only (ws://localhost:3000)
+npm run start:client # client only (http://localhost:5173)
+What is provided in server/
+src/types.ts — all TypeScript interfaces you need: Player, Question, Game, User, WSMessage, and request data types (RegData, CreateGameData, JoinGameData, StartGameData, AnswerData)
+src/index.ts — starter code that creates a WebSocketServer on port 3000. You need to implement all message handlers here
+package.json — dependencies already configured (ws, dotenv, TypeScript tooling)
+What you need to implement
+Your server must handle all WebSocket commands described in the assignment specification. The client expects the following message protocol (all messages are JSON strings with { type, data, id: 0 } format):
 
-1. Install dependencies:
-   npm install
+Client → Server commands:
 
-2. Start the server:
-   npm run start
+reg — register or login a player
+create_game — host creates a game with questions
+join_game — player joins a game by room code
+start_game — host starts the game
+answer — player submits an answer
+Server → Client responses:
 
-   The server will start at ws://localhost:8080 (or the address displayed in the terminal).
+reg — registration result
+game_created — game created with gameId and room code
+game_joined — join confirmation
+player_joined — broadcast when a player joins
+update_players — broadcast updated player list
+question — broadcast a question (without correct answer!)
+answer_accepted — answer submission confirmed
+question_result — broadcast results after a question ends
+game_finished — broadcast final scoreboard
+error — error message
+Refer to the full assignment specification for detailed data structures and the expected game flow.
 
-## Testing Example (JSON)
+How to test
+Start the server: npm run start:server
+Start the client: npm run start:client
+Open http://localhost:5173 in two browser tabs
+In one tab — register and create a game (host)
+In the other tab — register and join the game using the room code
+Host starts the game, player answers questions
+Verify scores, results, and final scoreboard
+Build for production
 
-To test the game flow using a client like Postman, you can use the following structure to create a game:
+# Build server
 
-{
-"type": "create_game",
-"data": {
-"questions": [
-{
-"text": "What is the capital of France?",
-"options": ["London", "Berlin", "Paris", "Madrid"],
-"correctIndex": 2,
-"timeLimitSec": 15
-},
-{
-"text": "Which planet is known as the Red Planet?",
-"options": ["Earth", "Mars", "Jupiter", "Saturn"],
-"correctIndex": 1,
-"timeLimitSec": 15
-}
-]
-},
-"id": 0
-}
+cd server && npm run build
 
-## Game Flow
+# Start built server
 
-1. Registration: Both host and players must register using the reg command.
-2. Creation: The host creates a game with a list of questions, receiving a unique 6-character room code.
-3. Joining: Players enter the room using the code.
-4. Playing:
-   - The host starts the game.
-   - Players answer questions within the time limit.
-   - After each question, the server broadcasts the correct answer and updated scores.
-5. Conclusion: After the last question, a final scoreboard with ranks is sent to all participants.
-
-## WebSocket Commands Summary
-
-- reg (Client): Register or login a user.
-- create_game (Host): Create a new game room.
-- join_game (Player): Join a room via code.
-- start_game (Host): Begin the first question.
-- answer (Player): Submit an answer choice.
-- question_result (Server): Broadcast correct answer and points.
-- game_finished (Server): Final leaderboard and ranking.
-
-## Project Structure
-
-- src/server.ts: Entry point and WebSocket server setup.
-- src/commands.ts: Core logic for handling all game actions and state transitions.
-- src/state.ts: In-memory storage for active users and games.
-- src/types.ts: TypeScript interfaces defining the game data structures.
+npm run start

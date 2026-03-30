@@ -7,16 +7,21 @@ import {
   handleRegister,
   handleStartGame,
 } from "./commands.js";
-const PORT = 8080;
+
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
 const wss = new WebSocketServer({ port: PORT });
+
+console.log(`🚀 Server ready at ws://localhost:${PORT}`);
 
 wss.on("connection", (ws: WebSocket) => {
   console.log("Client connected");
 
-  ws.on("message", (message: string) => {
+  ws.on("message", (message: Buffer) => {
     try {
       const parsed = JSON.parse(message.toString());
       const { type, data } = parsed;
+
       switch (type) {
         case "reg":
           handleRegister(ws, data);
@@ -37,7 +42,7 @@ wss.on("connection", (ws: WebSocket) => {
           console.log(`Unknown command: ${type}`);
       }
     } catch (error) {
-      console.log("Invalid JSON received");
+      console.error("Invalid JSON received");
     }
   });
 
@@ -46,5 +51,3 @@ wss.on("connection", (ws: WebSocket) => {
     handleDisconnect(ws);
   });
 });
-
-console.log(`WebSocket server address: ws://localhost:${PORT}`);
