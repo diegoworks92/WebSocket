@@ -12,7 +12,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 const wss = new WebSocketServer({ port: PORT });
 
-console.log(`🚀 Server ready at ws://localhost:${PORT}`);
+console.log(`Server ready at ws://localhost:${PORT}`);
 
 wss.on("connection", (ws: WebSocket) => {
   console.log("Client connected");
